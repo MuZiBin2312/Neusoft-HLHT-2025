@@ -2,6 +2,7 @@ import os
 import shutil
 import pandas as pd
 from collections import defaultdict
+import re
 
 
 def load_mapping(excel_path: str) -> dict:
@@ -23,25 +24,33 @@ def index_files(src_dir: str, extensions=None) -> list:
     return result
 
 
-import re
-
 def parse_filename(filename: str) -> tuple:
     """
-    解析文件名，提取文档分类 (SD-xx) 和姓名
+    修正版解析文件名，提取文档分类 (SD-xx) 和姓名
     示例: EMR-SD-04-西药处方-李凤存-T01-001.xml
     返回: (SD-xx, 姓名)
     """
     parts = filename.split("-")
-
     category = None
     name = None
 
     try:
-        sd_index = parts.index("SD")
-        category = f"{parts[sd_index]}-{parts[sd_index + 1]}"  # SD-04
-        # 姓名 = SD 后面 +2 的字段（跳过文档类型）
-        if len(parts) > sd_index + 3:
-            name = parts[sd_index + 3].strip()
+        sd_index = None
+        for idx, p in enumerate(parts):
+            if re.match(r"SD\d+", p.upper()) or (p.upper() == "SD" and idx+1 < len(parts) and parts[idx+1].isdigit()):
+                sd_index = idx
+                break
+
+        if sd_index is not None:
+            if parts[sd_index].upper() == "SD":
+                category = f"SD-{parts[sd_index+1]}"
+                name_index = sd_index + 3
+            else:
+                category = parts[sd_index].upper()
+                name_index = sd_index + 2
+
+            if len(parts) > name_index:
+                name = parts[name_index].strip()
     except Exception as e:
         print(f"⚠️ 解析文件名失败: {filename}, 错误: {e}")
 
@@ -96,13 +105,15 @@ def copy_limited_files(dst_dir: str, patient_files: dict, files: list):
 
 
 def make_validation_set(dst_dir: str):
-    """根据部分目录生成校验目录（按 SD-xx 分类归类），并打印统计"""
+    """根据部分目录生成校验目录（按 SD-xx 分类归类，并按每类最多100个切分）"""
     part_dir = os.path.join(dst_dir, "2.部分")
     validation_dir = os.path.join(dst_dir, "3.校验")
     os.makedirs(validation_dir, exist_ok=True)
 
     stats = defaultdict(int)
+    category_files = defaultdict(list)  # 保存每个 SD-xx 的所有文件路径
 
+    # 收集所有患者的部分文件，按 SD-xx 分类
     for patient in os.listdir(part_dir):
         patient_path = os.path.join(part_dir, patient)
         if not os.path.isdir(patient_path):
@@ -112,22 +123,39 @@ def make_validation_set(dst_dir: str):
             if not os.path.isdir(category_path):
                 continue
 
-            dst_path = os.path.join(validation_dir, category)
-            os.makedirs(dst_path, exist_ok=True)
-
             for f in os.listdir(category_path):
-                src_file = os.path.join(category_path, f)
-                shutil.copy(src_file, os.path.join(dst_path, f))
-                stats[category] += 1
+                if f.lower().endswith(".xml"):
+                    category_files[category].append(os.path.join(category_path, f))
+
+    # 按分类生成校验文件夹，按100个文件分组
+    for category, files in category_files.items():
+        total_files = len(files)
+        dst_category_path = os.path.join(validation_dir, category)
+        os.makedirs(dst_category_path, exist_ok=True)
+
+        if total_files > 100:
+            num_folders = (total_files + 99) // 100  # 向上取整
+            batch_size = (total_files + num_folders - 1) // num_folders  # 平均分配
+
+            for i in range(num_folders):
+                subfolder = os.path.join(dst_category_path, f"{i+1}")
+                os.makedirs(subfolder, exist_ok=True)
+                batch_files = files[i*batch_size:(i+1)*batch_size]
+                for fpath in batch_files:
+                    shutil.copy(fpath, os.path.join(subfolder, os.path.basename(fpath)))
+                stats[f"{category}/{i+1}"] = len(batch_files)
+        else:
+            for fpath in files:
+                shutil.copy(fpath, os.path.join(dst_category_path, os.path.basename(fpath)))
+            stats[category] = total_files
 
     print("\n📊 校验集统计：")
     for category, count in sorted(stats.items()):
         print(f"  {category}: {count} 个")
 
-
 def main():
     excel_path = "/Users/lijiahe/Documents/Neusoft/proj/0800-互联互通/第4轮/患者列表24-10.xlsx"
-    src_dir = "/Users/lijiahe/Documents/Neusoft/proj/0800-互联互通/第4轮/文档下载"
+    src_dir = "/Users/lijiahe/Documents/Neusoft/proj/0800-互联互通/第4轮/文档下载/未整理"
     dst_dir = "/Users/lijiahe/Documents/Neusoft/proj/0800-互联互通/第4轮/文档整理"
 
     print("📌 开始读取 Excel 映射...")
@@ -144,7 +172,7 @@ def main():
     print("📌 复制部分文件（每人每类最多10个）...")
     copy_limited_files(dst_dir, patient_files, file_index)
 
-    print("📌 整理校验文件（按 SD-xx 分类归类）...")
+    print("📌 整理校验文件（按 SD-xx 分类归类，每类最多100个切分）...")
     make_validation_set(dst_dir)
 
     print("✅ 文件整理完成！")
