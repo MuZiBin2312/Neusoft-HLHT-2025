@@ -3,11 +3,22 @@ import pandas as pd
 
 
 def load_patient_ids_from_excel(excel_path: str) -> pd.DataFrame:
-    """从 Excel 读取患者号，同时保留行号"""
-    df = pd.read_excel(excel_path, dtype=str)
-    df = df.fillna("")
-    df["行号"] = df.index + 2  # Excel 行号（+2 是因为 index 从 0 开始，第一行是表头）
-    return df
+    """从 Excel 读取患者号，保留行号，只保留有效号（数字或 ZY 开头）"""
+    df = pd.read_excel(excel_path, dtype=str).fillna("")
+    df["行号"] = df.index + 2  # Excel 行号
+
+    # 只保留有效号：数字或以 ZY 开头
+    df_valid = df[df["住院流水号"].str.match(r"^(\d+|ZY.+)$")].copy()
+
+    # 可选：打印被过滤掉的无效文字
+    df_invalid = df[~df["住院流水号"].str.match(r"^(\d+|ZY.+)$")]
+    if not df_invalid.empty:
+        print("\n⚠️ 以下行不是有效患者号（已过滤）：")
+        for _, row in df_invalid.iterrows():
+            print(f"  行 {row['行号']} -> {row['住院流水号']}")
+
+    return df_valid
+
 
 
 def load_patient_ids_from_full(full_dir: str) -> set:
@@ -46,8 +57,8 @@ def check_missing_patients(df: pd.DataFrame, full_ids: set):
 
 
 def main():
-    excel_path = "/Users/lijiahe/Documents/Neusoft/proj/0800-互联互通/第4轮/患者列表24-10.xlsx"
-    full_dir = "/Users/lijiahe/Documents/Neusoft/proj/0800-互联互通/第4轮/文档整理/1.全量"
+    excel_path = "/Users/lijiahe/Documents/Neusoft/proj/0800-互联互通/模拟10-29/25-10-29模拟患者列表.xlsx"
+    full_dir = "/Users/lijiahe/Documents/Neusoft/proj/0800-互联互通/模拟10-29/2文档整理/1.全量"
 
     print("📌 开始读取 Excel 患者号...")
     df = load_patient_ids_from_excel(excel_path)

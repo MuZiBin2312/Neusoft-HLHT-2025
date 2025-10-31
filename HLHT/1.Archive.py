@@ -80,90 +80,85 @@ def parse_patient_id_and_name(filepath: str, mapping: dict) -> tuple:
     return patient_id, name
 
 
+# ✅ 修改1：全量直接按患者建目录，不再按类别
 def copy_all_files(dst_dir: str, files: list, mapping: dict):
     full_dir = os.path.join(dst_dir, "1.全量")
     os.makedirs(full_dir, exist_ok=True)
-
-    patient_files = defaultdict(lambda: defaultdict(list))
+    patient_files = defaultdict(list)
 
     for src in files:
         fname = os.path.basename(src)
         patient_id, name = parse_patient_id_and_name(src, mapping)
-        category = parse_category(fname)
 
         if patient_id == "UNKNOWN":
             print(f"⚠️ 未找到患者号: {fname}")
 
-        new_dir = os.path.join(full_dir, f"{patient_id}-{name}", category)
+        new_dir = os.path.join(full_dir, f"{patient_id}-{name}")
         os.makedirs(new_dir, exist_ok=True)
         shutil.copy(src, os.path.join(new_dir, fname))
-
-        patient_files[patient_id][category].append(src)
+        patient_files[patient_id].append(src)
 
     return patient_files
 
 
+# ✅ 修改2：部分也不分类，但保留每人最多10个
 def copy_limited_files(dst_dir: str, patient_files: dict, mapping: dict):
+    """
+    部分校验逻辑：
+    每位患者的每一类文件最多保留 10 个。
+    """
     part_dir = os.path.join(dst_dir, "2.部分")
     os.makedirs(part_dir, exist_ok=True)
 
+    # patient_id -> category -> count
     counter = defaultdict(lambda: defaultdict(int))
 
-    for patient_id, cats in patient_files.items():
-        for category, files in cats.items():
-            for src in files:
-                if counter[patient_id][category] < 10:
-                    fname = os.path.basename(src)
-                    _, name = parse_patient_id_and_name(src, mapping)
-                    new_dir = os.path.join(part_dir, f"{patient_id}-{name}", category)
-                    os.makedirs(new_dir, exist_ok=True)
-                    shutil.copy(src, os.path.join(new_dir, fname))
-                    counter[patient_id][category] += 1
+    for patient_id, files in patient_files.items():
+        for src in files:
+            fname = os.path.basename(src)
+            category = parse_category(fname)
 
+            if counter[patient_id][category] < 10:
+                _, name = parse_patient_id_and_name(src, mapping)
+                new_dir = os.path.join(part_dir, f"{patient_id}-{name}")
+                os.makedirs(new_dir, exist_ok=True)
+                shutil.copy(src, os.path.join(new_dir, fname))
+                counter[patient_id][category] += 1
 
+# ✅ 修改3：部分校验（每类 ≤100）
 def make_validation_set(dst_dir: str):
     part_dir = os.path.join(dst_dir, "2.部分")
-    validation_dir = os.path.join(dst_dir, "3.校验")
+    validation_dir = os.path.join(dst_dir, "3.部分校验")
     os.makedirs(validation_dir, exist_ok=True)
 
     stats = defaultdict(int)
     category_files = defaultdict(list)
 
-    # 收集所有文件按分类
     for patient in os.listdir(part_dir):
         patient_path = os.path.join(part_dir, patient)
         if not os.path.isdir(patient_path):
             continue
-        for category in os.listdir(patient_path):
-            category_path = os.path.join(patient_path, category)
-            if not os.path.isdir(category_path):
-                continue
-            for f in os.listdir(category_path):
-                if f.lower().endswith(".xml"):
-                    category_files[category].append(os.path.join(category_path, f))
+        for f in os.listdir(patient_path):
+            if f.lower().endswith(".xml"):
+                category = parse_category(f)
+                category_files[category].append(os.path.join(patient_path, f))
 
-    # 按分类拆分
     for category, files in category_files.items():
         total_files = len(files)
         dst_category_path = os.path.join(validation_dir, category)
         os.makedirs(dst_category_path, exist_ok=True)
 
         if total_files > 100:
-            # 平分逻辑
-            num_folders = (total_files + 99) // 100  # 最少分多少组
+            num_folders = (total_files + 99) // 100
             base_size = total_files // num_folders
             remainder = total_files % num_folders
             start = 0
-
             for i in range(num_folders):
                 subfolder = os.path.join(dst_category_path, f"{i+1}")
                 os.makedirs(subfolder, exist_ok=True)
-
-                # 平分：前 remainder 组多一个文件
                 size = base_size + (1 if i < remainder else 0)
                 batch_files = files[start:start + size]
                 start += size
-
                 for fpath in batch_files:
                     shutil.copy(fpath, os.path.join(subfolder, os.path.basename(fpath)))
                 stats[f"{category}/{i+1}"] = len(batch_files)
@@ -172,14 +167,59 @@ def make_validation_set(dst_dir: str):
                 shutil.copy(fpath, os.path.join(dst_category_path, os.path.basename(fpath)))
             stats[category] = total_files
 
-    print("\n📊 校验集统计：")
+    print("\n📊 部分校验集统计：")
     for category, count in sorted(stats.items()):
         print(f"  {category}: {count} 个")
 
+
+# ✅ 修改4：全量校验（每类 ≤500）
+def make_full_validation_set(dst_dir: str):
+    full_dir = os.path.join(dst_dir, "1.全量")
+    validation_dir = os.path.join(dst_dir, "4.全量校验")
+    os.makedirs(validation_dir, exist_ok=True)
+
+    stats = defaultdict(int)
+    category_files = defaultdict(list)
+
+    for patient in os.listdir(full_dir):
+        patient_path = os.path.join(full_dir, patient)
+        if not os.path.isdir(patient_path):
+            continue
+        for f in os.listdir(patient_path):
+            if f.lower().endswith(".xml"):
+                category = parse_category(f)
+                category_files[category].append(os.path.join(patient_path, f))
+
+    for category, files in category_files.items():
+        total_files = len(files)
+        dst_category_path = os.path.join(validation_dir, category)
+        os.makedirs(dst_category_path, exist_ok=True)
+
+        if total_files > 500:
+            num_folders = (total_files + 499) // 500
+            start = 0
+            for i in range(num_folders):
+                subfolder = os.path.join(dst_category_path, f"{i+1}")
+                os.makedirs(subfolder, exist_ok=True)
+                batch_files = files[start:start + 500]
+                start += 500
+                for fpath in batch_files:
+                    shutil.copy(fpath, os.path.join(subfolder, os.path.basename(fpath)))
+                stats[f"{category}/{i+1}"] = len(batch_files)
+        else:
+            for fpath in files:
+                shutil.copy(fpath, os.path.join(dst_category_path, os.path.basename(fpath)))
+            stats[category] = total_files
+
+    print("\n📊 全量校验集统计（每类≤500）：")
+    for category, count in sorted(stats.items()):
+        print(f"  {category}: {count} 个")
+
+
 def main():
-    excel_path = "/Users/lijiahe/Documents/Neusoft/proj/0800-互联互通/第5轮/24-11-副本.xlsx"
-    src_dir = "/Users/lijiahe/Documents/Neusoft/proj/0800-互联互通/第5轮/文档下载"
-    dst_dir = "/Users/lijiahe/Documents/Neusoft/proj/0800-互联互通/第5轮/文档整理"
+    excel_path = "/Users/lijiahe/Documents/Neusoft/proj/0800-互联互通/模拟10-29/25-10-29模拟患者列表.xlsx"
+    src_dir = "/Users/lijiahe/Documents/Neusoft/proj/0800-互联互通/模拟10-29/1文档下载"
+    dst_dir = "/Users/lijiahe/Documents/Neusoft/proj/0800-互联互通/模拟10-29/2文档整理"
 
     print("📌 开始读取 Excel 映射...")
     mapping = load_mapping(excel_path)
@@ -188,14 +228,17 @@ def main():
     file_index = index_files(src_dir, extensions=[".xml"])
     print(f"📌 共索引到 {len(file_index)} 个 .xml 文件")
 
-    print("📌 复制全量文件...")
+    print("📌 复制全量文件（不分类）...")
     patient_files = copy_all_files(dst_dir, file_index, mapping)
 
-    print("📌 复制部分文件（每人每类最多10个）...")
+    print("📌 复制部分文件（每人最多10个，不分类）...")
     copy_limited_files(dst_dir, patient_files, mapping)
 
-    print("📌 整理校验文件（按 SD-xx 分类，每类 ≤100）...")
+    print("📌 整理部分校验文件（每类 ≤100）...")
     make_validation_set(dst_dir)
+
+    print("📌 整理全量校验文件（每类 ≤500）...")
+    make_full_validation_set(dst_dir)
 
     print("✅ 文件整理完成！")
 
