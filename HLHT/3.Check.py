@@ -57,8 +57,8 @@ def check_missing_patients(df: pd.DataFrame, full_ids: set):
 
 
 def main():
-    excel_path = "/Users/lijiahe/Documents/Neusoft/proj/0800-互联互通/模拟10-29/25-10-29模拟患者列表.xlsx"
-    full_dir = "/Users/lijiahe/Documents/Neusoft/proj/0800-互联互通/模拟10-29/2文档整理/1.全量"
+    excel_path = "//Users/lijiahe/Documents/Neusoft/proj/0800-互联互通/模拟-11-18/25-11-18患者列表.xlsx"
+    full_dir = "/Users/lijiahe/Documents/Neusoft/proj/0800-互联互通/模拟-11-18/2文档整理/1.全量"
 
     print("📌 开始读取 Excel 患者号...")
     df = load_patient_ids_from_excel(excel_path)
