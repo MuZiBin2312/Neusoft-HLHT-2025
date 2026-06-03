@@ -3,7 +3,7 @@ import os
 import xml.etree.ElementTree as ET
 import re
 
-folder_path = r"/Users/lijiahe/Documents/Neusoft/proj/0800-互联互通/模拟-11-18/2文档整理/4.全量校验/SD-22"  # ← 改成你的路径
+folder_path = r"/Users/lijiahe/Documents/Neusoft/proj/0800-互联互通/正式-12-18/2文档整理/4.全量校验/SD-22"  # ← 改成你的路径
 
 ok_count = 0
 bad_count = 0

@@ -217,9 +217,9 @@ def make_full_validation_set(dst_dir: str):
 
 
 def main():
-    excel_path = "/Users/lijiahe/Documents/Neusoft/proj/0800-互联互通/模拟-11-18/25-11-18患者列表.xlsx"
-    src_dir = "/Users/lijiahe/Documents/Neusoft/proj/0800-互联互通/模拟-11-18/1文档下载"
-    dst_dir = "/Users/lijiahe/Documents/Neusoft/proj/0800-互联互通/模拟-11-18/2文档整理"
+    excel_path = "/Users/lijiahe/Documents/Neusoft/proj/0800-互联互通/正式-12-18/25-12-18患者列表(4).xlsx"
+    src_dir = "/Users/lijiahe/Documents/Neusoft/proj/0800-互联互通/正式-12-18/1文档下载"
+    dst_dir = "/Users/lijiahe/Documents/Neusoft/proj/0800-互联互通/正式-12-18/2文档整理"
 
     print("📌 开始读取 Excel 映射...")
     mapping = load_mapping(excel_path)

@@ -4,9 +4,9 @@ import os
 import shutil
 
 # 原始文件根目录（含子目录）
-folder = "/Users/lijiahe/Documents/Neusoft/proj/0800-互联互通/模拟-11-18/1文档下载"
+folder = "/Users/lijiahe/Documents/Neusoft/proj/0800-互联互通/正式-12-18/1文档下载"
 # 备份目录
-backup_folder = "/Users/lijiahe/Documents/Neusoft/proj/0800-互联互通/模拟-11-18/删节点备份-SD32"
+backup_folder = "/Users/lijiahe/Documents/Neusoft/proj/0800-互联互通/正式-12-18/0删节点备份/32"
 os.makedirs(backup_folder, exist_ok=True)
 
 ns = {"hl7": "urn:hl7-org:v3"}
