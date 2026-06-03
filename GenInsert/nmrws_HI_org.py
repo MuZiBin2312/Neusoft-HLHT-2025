@@ -36,6 +36,7 @@ def generate_sql_from_excel(excel_path, output_sql_path):
         sql = f"INSERT INTO nmrws.nmrws_system_dict_detail (ID, DICT_DETAIL_CODE, DICT_DETAIL_NAME, DICT_TYPE_CODE, PARENT_ID, REMARKS, CREATE_USER, CREATE_TIME, MODIFY_USER, MODIFY_TIME, ENABLE_FLAG, SORT_NO, CACHEABLE) \n" \
               f"VALUES ('{unique_id}', '{detail_code}', '{detail_name}', '{dict_type_code}', '{parent_id}', '{remarks}', '{create_user}', TO_TIMESTAMP('{current_time_str}', 'YYYY-MM-DD HH12:MI:SS AM'), '{modify_user}', TO_TIMESTAMP('{current_time_str}', 'YYYY-MM-DD HH12:MI:SS AM'), {enable_flag}, {sort_no}, {cacheable});"
 
+
         sql_lines.append(sql)
 
     # 5. 将生成的 SQL 语句写入文件
