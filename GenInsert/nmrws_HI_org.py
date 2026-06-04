@@ -7,6 +7,7 @@ def generate_sql_from_excel(excel_path, output_sql_path):
     df = pd.read_excel(excel_path, sheet_name='SQL Results')
 
     # 2. 定义基础固定参数
+
     parent_id = 1259566784857972736
     base_id = 1259566905385492481  # 从你给的下一位 ID 开始递增
     dict_type_code = 'NHSA_HI_ORG_CODE'
